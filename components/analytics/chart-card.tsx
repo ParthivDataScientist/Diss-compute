@@ -14,7 +14,7 @@ type ChartCardProps = {
 export function ChartCard({ title, description, option, height = 280 }: ChartCardProps) {
   return (
     <SectionCard title={title} description={description}>
-      <ReactECharts option={option} style={{ height, width: "100%" }} notMerge lazyUpdate />
+      <ReactECharts option={option} style={{ height, width: "100%" }} opts={{ renderer: "svg" }} notMerge lazyUpdate />
     </SectionCard>
   );
 }

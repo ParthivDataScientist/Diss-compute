@@ -90,26 +90,29 @@ export function LeadsWorkspace({ session }: LeadsWorkspaceProps) {
         <h1 className="text-[24px] font-bold tracking-tight text-ink">
           {isAdmin ? "All Leads" : "My Leads"}
         </h1>
-        <p className="mt-1 text-[13px] text-gray-500 font-medium">
+        <p className="mt-2 text-[13px] font-medium text-gray-500">
           {isAdmin
             ? `Viewing all ${leads.length} leads across the team.`
-            : `Showing only your assigned leads — ${leads.length} total.`}
+            : `Showing only your assigned leads - ${leads.length} total.`}
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-        {kpis.map(kpi => (
-          <KpiCard
-            key={kpi.label}
-            label={kpi.label}
-            value={kpi.value}
-            status={kpi.status}
-            icon={kpi.icon}
-            trend={kpi.trend}
-            active={kpi.status ? filters.status === kpi.status && !showOverdue : showOverdue}
-            onClick={() => handleKpiClick(kpi.status)}
-          />
-        ))}
+      <div className="-mx-4 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0">
+        <div className="flex snap-x snap-mandatory gap-3 lg:grid lg:grid-cols-6 lg:gap-4">
+          {kpis.map(kpi => (
+            <div key={kpi.label} className="min-w-[232px] snap-start sm:min-w-[248px] lg:min-w-0">
+              <KpiCard
+                label={kpi.label}
+                value={kpi.value}
+                status={kpi.status}
+                icon={kpi.icon}
+                trend={kpi.trend}
+                active={kpi.status ? filters.status === kpi.status && !showOverdue : showOverdue}
+                onClick={() => handleKpiClick(kpi.status)}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       <FilterBar filters={filters} onChange={next => { setShowOverdue(false); setFilters(next); }} />

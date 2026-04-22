@@ -9,6 +9,7 @@ export async function GET() {
   if (!user || !user.active) return Response.json(null, { status: 401 });
 
   // Never expose password
-  const { password: _, ...safeUser } = user;
+  const { password, ...safeUser } = user;
+  void password;
   return Response.json(safeUser);
 }

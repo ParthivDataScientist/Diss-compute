@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { CalendarClock, CheckCircle2, FileText, MapPin, Phone, X, XCircle, Save } from "lucide-react";
 import type { Lead } from "@/lib/types";
-import { PriorityBadge, StatusBadge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/badge";
+import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { brands, leadSources, priorities, salespeople, statuses, useCases } from "@/lib/constants";
 
@@ -13,7 +14,7 @@ type LeadDrawerProps = {
 
 export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
   const isOpen = Boolean(lead);
-  const [activeTab, setActiveTab] = useState<"details" | "notes" | "activity">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "notes">("details");
   
   const [editingSection, setEditingSection] = useState<"Requirement" | "Lead Info" | "Note" | "Follow-up" | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
@@ -28,13 +29,33 @@ export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
       setNoteText("");
       setFollowUpDate(lead.nextFollowUpDate || "");
     }
-  }, [lead?.id]);
+  }, [lead]);
 
   const handleSave = () => {
     if (lead) {
-      onUpdate({ ...lead, ...editForm } as Lead);
+      const nextLead = { ...lead, ...editForm } as Lead;
+      onUpdate(nextLead);
+      setEditForm(nextLead);
     }
     setEditingSection(null);
+  };
+
+  const applyLeadUpdate = (updates: Partial<Lead>, activity?: Lead["activities"][number], nextTab: "details" | "notes" = "details") => {
+    if (!lead) return;
+
+    const nextLead: Lead = {
+      ...lead,
+      ...updates,
+      updatedAt: new Date().toISOString().slice(0, 10),
+      activities: activity ? [activity, ...lead.activities] : lead.activities
+    };
+
+    onUpdate(nextLead);
+    setEditForm(nextLead);
+    setEditingSection(null);
+    setNoteText("");
+    setFollowUpDate(nextLead.nextFollowUpDate || "");
+    setActiveTab(nextTab);
   };
 
   return (
@@ -54,9 +75,7 @@ export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
             <header className="shrink-0 border-b border-line px-6 pt-6">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent-100 text-[16px] font-bold text-accent-700">
-                    {lead.customerName.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
-                  </div>
+                  <InitialsAvatar name={lead.customerName} className="h-12 w-12 bg-slate-100" labelClassName="text-[15px]" />
                   <div>
                     <div className="flex items-center gap-3">
                       <h2 className="text-xl font-bold tracking-tight text-ink">{lead.customerName}</h2>
@@ -85,8 +104,7 @@ export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
 
               <div className="mt-6 flex gap-6">
                 <TabButton active={activeTab === "details"} onClick={() => setActiveTab("details")}>Details</TabButton>
-                <TabButton active={activeTab === "notes"} onClick={() => setActiveTab("notes")}>Notes ({lead.activities.filter(a => a.type === "Note").length || 4})</TabButton>
-                <TabButton active={activeTab === "activity"} onClick={() => setActiveTab("activity")}>Activity</TabButton>
+                <TabButton active={activeTab === "notes"} onClick={() => setActiveTab("notes")}>Notes ({lead.activities.length})</TabButton>
               </div>
             </header>
 
@@ -141,8 +159,44 @@ export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
                     <div className="grid grid-cols-2 gap-3">
                       <ActionButton onClick={() => setEditingSection("Note")} label="Add Note" icon={<FileText size={14} />} />
                       <ActionButton onClick={() => { setFollowUpDate(lead.nextFollowUpDate || ""); setEditingSection("Follow-up"); }} label="Schedule Follow-up" icon={<CalendarClock size={14} />} />
-                      <ActionButton onClick={() => onUpdate({ ...lead, status: "Won" } as Lead)} label="Mark Won" icon={<CheckCircle2 size={14} />} intent="success" />
-                      <ActionButton onClick={() => onUpdate({ ...lead, status: "Lost" } as Lead)} label="Mark Lost" icon={<XCircle size={14} />} intent="danger" />
+                      <ActionButton
+                        onClick={() =>
+                          applyLeadUpdate(
+                            { status: "Won" },
+                            {
+                              id: `act-${Date.now()}`,
+                              type: "Status",
+                              title: "Lead marked won",
+                              body: "Lead status updated to Won from quick actions.",
+                              createdAt: new Date().toISOString().slice(0, 16).replace("T", " "),
+                              author: "Sales Team"
+                            },
+                            "notes"
+                          )
+                        }
+                        label="Mark Won"
+                        icon={<CheckCircle2 size={14} />}
+                        intent="success"
+                      />
+                      <ActionButton
+                        onClick={() =>
+                          applyLeadUpdate(
+                            { status: "Lost" },
+                            {
+                              id: `act-${Date.now()}`,
+                              type: "Status",
+                              title: "Lead marked lost",
+                              body: "Lead status updated to Lost from quick actions.",
+                              createdAt: new Date().toISOString().slice(0, 16).replace("T", " "),
+                              author: "Sales Team"
+                            },
+                            "notes"
+                          )
+                        }
+                        label="Mark Lost"
+                        icon={<XCircle size={14} />}
+                        intent="danger"
+                      />
                     </div>
                     
                     {editingSection === "Note" && (
@@ -155,22 +209,29 @@ export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
                         />
                         <div className="mt-3 flex justify-end gap-2">
                           <button onClick={() => { setEditingSection(null); setNoteText(""); }} className="text-[11px] font-semibold text-gray-500 hover:text-ink px-3 py-1.5 transition-colors">Cancel</button>
-                          <button onClick={() => {
-                            if (noteText.trim()) {
-                              const newActivity = {
-                                id: `act-${Date.now()}`,
-                                type: "Note" as const,
-                                title: "Quick Note",
-                                body: noteText.trim(),
-                                createdAt: new Date().toISOString().slice(0, 16).replace("T", " "),
-                                author: "Sales Team"
-                              };
-                              onUpdate({ ...lead, activities: [newActivity, ...lead.activities] } as Lead);
-                            }
-                            setEditingSection(null);
-                            setNoteText("");
-                            setActiveTab("notes");
-                          }} className="rounded bg-accent-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-700">Save Note</button>
+                          <button
+                            onClick={() => {
+                              const trimmedNote = noteText.trim();
+                              if (!trimmedNote) return;
+
+                              applyLeadUpdate(
+                                { lastNotePreview: trimmedNote },
+                                {
+                                  id: `act-${Date.now()}`,
+                                  type: "Note",
+                                  title: "Quick Note",
+                                  body: trimmedNote,
+                                  createdAt: new Date().toISOString().slice(0, 16).replace("T", " "),
+                                  author: "Sales Team"
+                                },
+                                "notes"
+                              );
+                            }}
+                            className="rounded bg-accent-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-accent-300"
+                            disabled={!noteText.trim()}
+                          >
+                            Save Note
+                          </button>
                         </div>
                       </div>
                     )}
@@ -186,21 +247,28 @@ export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
                         />
                         <div className="mt-3 flex justify-end gap-2">
                           <button onClick={() => setEditingSection(null)} className="text-[11px] font-semibold text-gray-500 hover:text-ink px-3 py-1.5 transition-colors">Cancel</button>
-                          <button onClick={() => {
-                            if (followUpDate) {
-                              const newActivity = {
-                                id: `act-${Date.now()}`,
-                                type: "Follow-up" as const,
-                                title: "Follow-up Scheduled",
-                                body: `Scheduled next follow-up for ${formatDate(followUpDate)}`,
-                                createdAt: new Date().toISOString().slice(0, 16).replace("T", " "),
-                                author: "Sales Team"
-                              };
-                              onUpdate({ ...lead, nextFollowUpDate: followUpDate, activities: [newActivity, ...lead.activities] } as Lead);
-                            }
-                            setEditingSection(null);
-                            setActiveTab("activity");
-                          }} className="rounded bg-accent-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-700">Schedule</button>
+                          <button
+                            onClick={() => {
+                              if (!followUpDate) return;
+
+                              applyLeadUpdate(
+                                { nextFollowUpDate: followUpDate },
+                                {
+                                  id: `act-${Date.now()}`,
+                                  type: "Follow-up",
+                                  title: "Follow-up Scheduled",
+                                  body: `Scheduled next follow-up for ${formatDate(followUpDate)}`,
+                                  createdAt: new Date().toISOString().slice(0, 16).replace("T", " "),
+                                  author: "Sales Team"
+                                },
+                                "notes"
+                              );
+                            }}
+                            className="rounded bg-accent-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-accent-300"
+                            disabled={!followUpDate}
+                          >
+                            Schedule
+                          </button>
                         </div>
                       </div>
                     )}
@@ -208,19 +276,25 @@ export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
                 </div>
               )}
 
-              {activeTab !== "details" && (
+              {activeTab === "notes" && (
                 <div className="space-y-4">
-                  {lead.activities.map((activity) => (
-                    <div key={activity.id} className="relative border-l border-line pl-4 py-1">
-                      <span className="absolute -left-[5px] top-2.5 h-2.5 w-2.5 rounded-full bg-accent-600 ring-4 ring-white" />
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-[13px] font-semibold text-ink">{activity.title}</p>
-                        <span className="shrink-0 text-[11px] text-gray-500 font-medium">{activity.createdAt}</span>
+                  {lead.activities.length > 0 ? (
+                    lead.activities.map((activity) => (
+                      <div key={activity.id} className="relative border-l border-line pl-4 py-1">
+                        <span className="absolute -left-[5px] top-2.5 h-2.5 w-2.5 rounded-full bg-accent-600 ring-4 ring-white" />
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[13px] font-semibold text-ink">{activity.title}</p>
+                          <span className="shrink-0 text-[11px] text-gray-500 font-medium">{activity.createdAt}</span>
+                        </div>
+                        <p className="mt-1 text-[13px] text-gray-600 leading-relaxed">{activity.body}</p>
+                        <p className="mt-1.5 text-[11px] font-medium text-gray-400">{activity.type} by {activity.author}</p>
                       </div>
-                      <p className="mt-1 text-[13px] text-gray-600 leading-relaxed">{activity.body}</p>
-                      <p className="mt-1.5 text-[11px] font-medium text-gray-400">{activity.type} by {activity.author}</p>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-line bg-gray-50 px-4 py-6 text-center text-[13px] text-gray-500">
+                      No notes or updates yet.
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
@@ -285,7 +359,7 @@ type DetailItem = {
   label: string;
   key: keyof Lead;
   value: string;
-  rawValue?: any;
+  rawValue?: Lead[keyof Lead];
   type?: "text" | "number" | "select" | "date";
   options?: readonly string[];
 };
@@ -299,7 +373,7 @@ function DetailGrid({
   items: DetailItem[], 
   isEditing?: boolean,
   editForm?: Partial<Lead>,
-  onChange?: (key: keyof Lead, value: any) => void
+  onChange?: (key: keyof Lead, value: Lead[keyof Lead]) => void
 }) {
   return (
     <dl className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">
@@ -315,7 +389,7 @@ function DetailGrid({
                 item.type === "select" ? (
                   <select 
                     value={currentValue as string}
-                    onChange={(e) => onChange?.(item.key, e.target.value)}
+                    onChange={(e) => onChange?.(item.key, e.target.value as Lead[keyof Lead])}
                     className="w-full h-7 text-[12px] rounded border border-line bg-gray-50 px-2 outline-none focus:border-accent-500"
                   >
                     {item.options?.map(opt => <option key={opt}>{opt}</option>)}
@@ -324,7 +398,7 @@ function DetailGrid({
                   <input
                     type={item.type || "text"}
                     value={currentValue as string}
-                    onChange={(e) => onChange?.(item.key, item.type === "number" ? Number(e.target.value) : e.target.value)}
+                    onChange={(e) => onChange?.(item.key, (item.type === "number" ? Number(e.target.value) : e.target.value) as Lead[keyof Lead])}
                     className="w-full h-7 text-[12px] rounded border border-line bg-gray-50 px-2 outline-none focus:border-accent-500"
                   />
                 )

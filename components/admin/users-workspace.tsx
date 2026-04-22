@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Shield, UserCheck, UserX, Edit2, RotateCcw, Search } from "lucide-react";
+import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { getUsers, createUser, updateUser } from "@/lib/auth/users";
 import type { AppUser, UserRole } from "@/lib/auth/types";
 import { leads } from "@/lib/mock-data";
@@ -234,9 +235,7 @@ export function UsersWorkspace() {
               <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-100 text-[12px] font-bold text-accent-700">
-                      {user.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
-                    </div>
+                    <InitialsAvatar name={user.name} />
                     <div>
                       <p className="text-[13px] font-semibold text-ink">{user.name}</p>
                       <p className="text-[11px] text-gray-500">{user.email}</p>

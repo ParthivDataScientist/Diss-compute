@@ -1,13 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Bell, Laptop, LayoutDashboard, LineChart, LogOut, Menu,
-  PanelLeftClose, PanelLeftOpen, Plus, Shield, Users
+  Bell,
+  Laptop,
+  LayoutDashboard,
+  LineChart,
+  LogOut,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Users,
+  X
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
+import { InitialsAvatar } from "@/components/ui/initials-avatar";
+import { cn } from "@/lib/utils";
 import type { Session } from "@/lib/auth/types";
 
 type AppShellProps = {
@@ -15,164 +26,194 @@ type AppShellProps = {
   children: React.ReactNode;
 };
 
-const managerNav = [
-  { href: "/", label: "My Leads", icon: LayoutDashboard },
-  { href: "/add-lead", label: "Add Lead", icon: Plus }
-];
+const managerNav = [{ href: "/", label: "My Leads", icon: LayoutDashboard }];
 
 const adminNav = [
   { href: "/", label: "All Leads", icon: LayoutDashboard },
-  { href: "/add-lead", label: "Add Lead", icon: Plus },
   { href: "/analytics", label: "Analytics", icon: LineChart },
   { href: "/admin/users", label: "User Management", icon: Users }
 ];
 
 export function AppShell({ session, children }: AppShellProps) {
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const navItems = session.role === "admin" ? adminNav : managerNav;
 
-  const initials = session.name
-    .split(" ")
-    .map(n => n[0])
-    .join("")
-    .substring(0, 2)
-    .toUpperCase();
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [pathname]);
 
-  return (
-    <div className="flex min-h-screen bg-surface">
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-20 hidden flex-col border-r border-line bg-white transition-all duration-300 ease-in-out lg:flex ${
-          sidebarOpen ? "w-[240px]" : "w-0 overflow-hidden border-r-0"
-        }`}
-      >
-        <div className="flex h-full flex-col px-4 py-5">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 rounded-lg px-2 py-2 transition-opacity hover:opacity-80">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-600 text-white shadow-sm">
-              <Laptop size={16} />
-            </span>
-            <span>
-              <span className="block text-[14px] font-bold tracking-tight text-ink">Circuit CRM</span>
-              <span className="block text-[11px] font-medium text-muted">Computer Shop</span>
-            </span>
+  const activeLabel =
+    navItems.find((item) => (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)))?.label ?? "Circuit CRM";
+
+  const renderNav = (collapsed = false) => (
+    <nav className="flex-1 space-y-1.5">
+      {navItems.map((item) => {
+        const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={isActive ? "page" : undefined}
+            className={cn(
+              "group relative flex h-11 items-center rounded-xl px-3 text-[14px] font-medium transition-all duration-200 lg:h-10 lg:rounded-lg lg:text-[13px]",
+              collapsed ? "justify-center px-0" : "gap-3",
+              isActive ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <span
+              className={cn(
+                "absolute left-0 top-2 bottom-2 w-0.5 rounded-full transition-colors",
+                isActive ? "bg-accent-600" : "bg-transparent group-hover:bg-slate-200"
+              )}
+            />
+            <item.icon size={17} className={cn("shrink-0", isActive ? "text-accent-600" : "text-slate-400 group-hover:text-slate-600")} />
+            {!collapsed ? <span className="truncate">{item.label}</span> : null}
           </Link>
+        );
+      })}
+    </nav>
+  );
 
-          {/* Role badge */}
-          <div className="mt-4 px-2">
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
-              session.role === "admin"
-                ? "bg-accent-100 text-accent-700"
-                : "bg-gray-100 text-gray-600"
-            }`}>
-              <Shield size={11} />
-              {session.role === "admin" ? "Administrator" : "Manager"}
-            </span>
-          </div>
+  const renderSidebarBody = (collapsed = false) => (
+    <div className="flex h-full flex-col px-3 py-4">
+      <Link href="/" className={cn("flex items-center rounded-lg px-2 py-2 text-slate-900 transition-opacity hover:opacity-90", collapsed ? "justify-center" : "gap-3")}>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+          <Laptop size={16} />
+        </span>
+        {!collapsed ? (
+          <span>
+            <span className="block text-[14px] font-semibold tracking-tight">Circuit CRM</span>
+            <span className="block text-[11px] text-slate-500">Computer Shop</span>
+          </span>
+        ) : null}
+      </Link>
 
-          {/* Nav */}
-          <nav className="mt-5 flex-1 space-y-0.5 overflow-y-auto pr-1">
-            {navItems.map((item) => {
-              const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-              const isAdmin = item.href === "/admin/users" || item.href === "/analytics";
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
-                    isActive
-                      ? "bg-accent-50 text-accent-700"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-ink"
-                  }`}
-                >
-                  <item.icon
-                    size={16}
-                    className={`shrink-0 ${isActive ? "text-accent-600" : "text-gray-400 group-hover:text-gray-600"}`}
-                  />
-                  {item.label}
-                  {isAdmin && (
-                    <span className="ml-auto rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-accent-100 text-accent-600">
-                      Admin
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
+      {!collapsed ? <p className="mt-4 px-2 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">Navigation</p> : null}
 
-          {/* Bottom: Add Lead CTA + User */}
-          <div className="mt-4 shrink-0 space-y-3">
-            <Link
-              href="/add-lead"
-              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-accent-600 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-accent-700"
-            >
-              <Plus size={15} />
-              Add Lead
-            </Link>
+      <div className="mt-4 flex-1">{renderNav(collapsed)}</div>
 
-            <div className="flex items-center gap-3 rounded-xl border border-line p-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-100 text-[12px] font-bold text-accent-700">
-                {initials}
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <p className="truncate text-[13px] font-semibold text-ink">{session.name}</p>
-                <p className="truncate text-[11px] text-gray-500 capitalize">{session.role}</p>
+      <div className="border-t border-slate-200 pt-3">
+        <Link
+          href="/add-lead"
+          className={cn(
+            "flex h-11 items-center justify-center rounded-xl bg-slate-900 text-[14px] font-semibold text-white transition-colors duration-200 hover:bg-slate-800 lg:h-10 lg:rounded-lg lg:text-[13px]",
+            collapsed ? "w-10" : "gap-2"
+          )}
+          aria-label="Add Lead"
+        >
+          <Plus size={15} />
+          {!collapsed ? <span>Add Lead</span> : null}
+        </Link>
+
+        <div className={cn("mt-3 flex items-center rounded-xl bg-slate-50 px-2 py-2", collapsed ? "justify-center" : "gap-3")}>
+          <InitialsAvatar name={session.name} className="h-9 w-9 bg-white" labelClassName="text-[12px]" />
+          {!collapsed ? (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-medium text-slate-900">{session.name}</p>
+                <p className="truncate text-[11px] capitalize text-slate-500">{session.role}</p>
               </div>
               <form action={logoutAction}>
                 <button
                   type="submit"
                   title="Sign out"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors duration-200 hover:bg-white hover:text-slate-700 lg:h-8 lg:w-8 lg:rounded-lg"
                 >
                   <LogOut size={14} />
                 </button>
               </form>
-            </div>
-          </div>
+            </>
+          ) : null}
         </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-surface">
+      <div
+        className={cn(
+          "fixed inset-0 z-30 bg-slate-950/20 backdrop-blur-[1px] transition-opacity lg:hidden",
+          mobileSidebarOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+        onClick={() => setMobileSidebarOpen(false)}
+      />
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 w-[288px] border-r border-slate-200 bg-white transition-transform duration-200 lg:hidden",
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Close sidebar"
+        >
+          <X size={16} />
+        </button>
+        {renderSidebarBody()}
       </aside>
 
-      {/* Main */}
-      <main className={`flex-1 transition-all duration-300 ease-in-out ${sidebarOpen ? "lg:pl-[240px]" : "lg:pl-0"}`}>
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-line bg-white/90 px-6 backdrop-blur-md">
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-20 hidden border-r border-slate-200 bg-white transition-[width] duration-200 lg:block",
+          desktopSidebarOpen ? "w-[248px]" : "w-[92px]"
+        )}
+      >
+        {renderSidebarBody(!desktopSidebarOpen)}
+      </aside>
+
+      <main
+        className={cn(
+          "min-h-screen transition-[padding] duration-200",
+          desktopSidebarOpen ? "lg:pl-[248px]" : "lg:pl-[92px]"
+        )}
+      >
+        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur md:px-6">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setSidebarOpen(p => !p)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-ink"
-              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              type="button"
+              onClick={() => setMobileSidebarOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+              aria-label="Open sidebar"
             >
-              {sidebarOpen
-                ? <PanelLeftClose size={18} className="hidden lg:block" />
-                : <PanelLeftOpen size={18} className="hidden lg:block" />
-              }
-              <Menu size={18} className="lg:hidden" />
+              <Menu size={18} />
             </button>
-            <span className="text-[14px] font-semibold text-ink hidden sm:block">
-              {navItems.find(n => n.href === "/" ? pathname === "/" : pathname.startsWith(n.href))?.label ?? "Circuit CRM"}
-            </span>
+
+            <button
+              type="button"
+              onClick={() => setDesktopSidebarOpen((open) => !open)}
+              className="hidden h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900 lg:flex"
+              aria-label={desktopSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            >
+              {desktopSidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+            </button>
+
+            <div>
+              <p className="text-[14px] font-semibold text-slate-900">{activeLabel}</p>
+              <p className="hidden text-[12px] text-slate-500 sm:block">Operational workspace</p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            {session.role === "admin" && (
-              <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-accent-200 bg-accent-50 px-2.5 py-1 text-[11px] font-bold text-accent-700">
-                <Shield size={11} />
-                Admin View
-              </span>
-            )}
-            <button className="relative text-gray-500 hover:text-ink transition-colors">
-              <Bell size={18} />
-              <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white">
-                3
-              </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900"
+              aria-label="Notifications"
+            >
+              <Bell size={17} />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
             </button>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-100 text-[12px] font-bold text-accent-700">
-              {initials}
-            </div>
+            <InitialsAvatar name={session.name} />
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1200px] p-8">{children}</div>
+        <div className="mx-auto max-w-[1200px] px-4 py-5 md:px-6 md:py-8">{children}</div>
       </main>
     </div>
   );

@@ -9,6 +9,7 @@ import { FormField, inputClass } from "@/components/ui/form-field";
 import { SectionCard } from "@/components/ui/section-card";
 import { cn } from "@/lib/utils";
 import { leads as mockLeads } from "@/lib/mock-data";
+import type { LeadStatus, Priority } from "@/lib/types";
 
 type FormState = {
   customerName: string;
@@ -48,7 +49,12 @@ const emptyForm: FormState = {
 
 type Errors = Partial<Record<keyof FormState, string>>;
 
-export function AddLeadForm() {
+type AddLeadFormProps = {
+  currentUserId: string;
+  ownershipBySalesperson: Record<string, string>;
+};
+
+export function AddLeadForm({ currentUserId, ownershipBySalesperson }: AddLeadFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<Errors>({});
@@ -80,9 +86,12 @@ export function AddLeadForm() {
     
     setIsSubmitting(true);
 
+    const ownerId = ownershipBySalesperson[form.salesperson] ?? currentUserId;
+
     // Add to mock data
     mockLeads.unshift({
       id: `lead-${Date.now()}`,
+      ownerId,
       customerName: form.customerName,
       phone: form.phone,
       email: form.email,
@@ -92,8 +101,8 @@ export function AddLeadForm() {
       budget: Number(form.budget),
       useCase: form.useCase,
       preferredSpecs: form.preferredSpecs,
-      status: form.status as any,
-      priority: form.priority as any,
+      status: form.status as LeadStatus,
+      priority: form.priority as Priority,
       salesperson: form.salesperson,
       leadSource: form.leadSource,
       nextFollowUpDate: form.nextFollowUpDate,

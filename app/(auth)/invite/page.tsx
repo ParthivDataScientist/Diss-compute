@@ -47,7 +47,7 @@ export default function InvitePage() {
           <div className="mb-8 text-center">
             <h2 className="text-xl font-bold tracking-tight text-ink">Welcome to Circuit</h2>
             <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
-              You've been invited to join the <span className="font-semibold text-ink">Computer Shop</span> workspace. Set your password to get started.
+              You&apos;ve been invited to join the <span className="font-semibold text-ink">Computer Shop</span> workspace. Set your password to get started.
             </p>
           </div>
 
