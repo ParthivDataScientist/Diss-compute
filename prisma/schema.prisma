@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SALESPERSON
+  MANAGER
+  ADMIN
+}
+
+enum LeadStatus {
+  HOT
+  WARM
+  COLD
+  WON
+  LOST
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  FOLLOW_UP
+  STATUS_CHANGE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole @default(SALESPERSON)
+  leads     Lead[]   @relation("SalespersonLeads")
+  notes     LeadActivity[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeadSource {
+  id    String @id @default(cuid())
+  name  String @unique
+  leads Lead[]
+}
+
+model Brand {
+  id     String         @id @default(cuid())
+  name   String         @unique
+  models ProductModel[]
+  leads  Lead[]
+}
+
+model ProductModel {
+  id      String @id @default(cuid())
+  name    String
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id])
+  leads   Lead[]
+
+  @@unique([brandId, name])
+}
+
+model Lead {
+  id               String         @id @default(cuid())
+  customerName     String
+  phone            String
+  email            String?
+  city             String?
+  brandId          String?
+  brand            Brand?         @relation(fields: [brandId], references: [id])
+  productModelId   String?
+  productModel     ProductModel?  @relation(fields: [productModelId], references: [id])
+  brandInterested  String
+  laptopModel      String
+  budget           Decimal        @db.Decimal(12, 2)
+  useCase          String
+  preferredSpecs   String?
+  status           LeadStatus     @default(WARM)
+  priority         Priority       @default(MEDIUM)
+  salespersonId    String
+  salesperson      User           @relation("SalespersonLeads", fields: [salespersonId], references: [id])
+  leadSourceId     String?
+  leadSource       LeadSource?    @relation(fields: [leadSourceId], references: [id])
+  nextFollowUpDate DateTime?
+  lastNotePreview  String?
+  activities       LeadActivity[]
+  followUps        FollowUp[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([status, priority])
+  @@index([salespersonId])
+  @@index([nextFollowUpDate])
+}
+
+model LeadActivity {
+  id        String       @id @default(cuid())
+  leadId    String
+  lead      Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?        @relation(fields: [authorId], references: [id])
+  type      ActivityType @default(NOTE)
+  title     String
+  body      String
+  createdAt DateTime     @default(now())
+}
+
+model FollowUp {
+  id          String    @id @default(cuid())
+  leadId      String
+  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  scheduledAt DateTime
+  completedAt DateTime?
+  note        String?
+  createdAt   DateTime  @default(now())
+
+  @@index([scheduledAt, completedAt])
+}
