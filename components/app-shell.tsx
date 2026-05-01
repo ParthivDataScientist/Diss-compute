@@ -17,6 +17,7 @@ import {
   X
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/lib/auth/types";
@@ -39,6 +40,7 @@ export function AppShell({ session, children }: AppShellProps) {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const navItems = session.role === "admin" ? adminNav : managerNav;
+  const canAddLeads = session.role === "admin";
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -96,19 +98,21 @@ export function AppShell({ session, children }: AppShellProps) {
       <div className="mt-4 flex-1">{renderNav(collapsed)}</div>
 
       <div className="border-t border-slate-200 pt-3">
-        <Link
-          href="/add-lead"
-          className={cn(
-            "flex h-11 items-center justify-center rounded-xl bg-slate-900 text-[14px] font-semibold text-white transition-colors duration-200 hover:bg-slate-800 lg:h-10 lg:rounded-lg lg:text-[13px]",
-            collapsed ? "w-10" : "gap-2"
-          )}
-          aria-label="Add Lead"
-        >
-          <Plus size={15} />
-          {!collapsed ? <span>Add Lead</span> : null}
-        </Link>
+        {canAddLeads ? (
+          <Link
+            href="/add-lead"
+            className={cn(
+              "flex h-11 items-center justify-center rounded-xl bg-slate-900 text-[14px] font-semibold text-white transition-colors duration-200 hover:bg-slate-800 lg:h-10 lg:rounded-lg lg:text-[13px]",
+              collapsed ? "w-10" : "gap-2"
+            )}
+            aria-label="Add Lead"
+          >
+            <Plus size={15} />
+            {!collapsed ? <span>Add Lead</span> : null}
+          </Link>
+        ) : null}
 
-        <div className={cn("mt-3 flex items-center rounded-xl bg-slate-50 px-2 py-2", collapsed ? "justify-center" : "gap-3")}>
+        <div className={cn(canAddLeads ? "mt-3" : "mt-0", "flex items-center rounded-xl bg-slate-50 px-2 py-2", collapsed ? "justify-center" : "gap-3")}>
           <InitialsAvatar name={session.name} className="h-9 w-9 bg-white" labelClassName="text-[12px]" />
           {!collapsed ? (
             <>
@@ -201,6 +205,7 @@ export function AppShell({ session, children }: AppShellProps) {
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <button
               type="button"
               className="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900"

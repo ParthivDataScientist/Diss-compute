@@ -6,37 +6,37 @@ import { FilterBar, initialFilters, type LeadFilters } from "@/components/leads/
 import { KpiCard } from "@/components/leads/kpi-card";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
 import { LeadsTable } from "@/components/leads/leads-table";
-import { leads as mockLeads } from "@/lib/mock-data";
-import type { Lead, LeadStatus } from "@/lib/types";
+import { deleteLeadsAction, updateLeadAction } from "@/app/actions/leads";
+import type { Lead, LeadActivity, LeadStatus } from "@/lib/types";
 import type { Session } from "@/lib/auth/types";
 import { isOverdue } from "@/lib/utils";
 
 type LeadsWorkspaceProps = {
   session: Session;
+  initialLeads: Lead[];
 };
 
-export function LeadsWorkspace({ session }: LeadsWorkspaceProps) {
+export function LeadsWorkspace({ session, initialLeads }: LeadsWorkspaceProps) {
   const isAdmin = session.role === "admin";
-
-  // Row-level isolation: managers only see their own leads
-  const ownedLeads = useMemo(
-    () => (isAdmin ? mockLeads : mockLeads.filter(l => l.ownerId === session.userId)),
-    [isAdmin, session.userId]
-  );
-
-  const [leads, setLeads] = useState<Lead[]>([...ownedLeads]);
+  const canDeleteLeads = isAdmin;
+  const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [filters, setFilters] = useState<LeadFilters>(initialFilters);
   const [showOverdue, setShowOverdue] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  const handleUpdateLead = useCallback((updatedLead: Lead) => {
+  const handleUpdateLead = useCallback(async (updatedLead: Lead, activity?: LeadActivity) => {
     setLeads(prev => prev.map(l => l.id === updatedLead.id ? { ...updatedLead } : l));
     setSelectedLead({ ...updatedLead });
+    const savedLead = await updateLeadAction(updatedLead, activity);
+    setLeads(prev => prev.map(l => l.id === savedLead.id ? savedLead : l));
+    setSelectedLead(savedLead);
   }, []);
 
-  const handleDelete = useCallback((ids: string[]) => {
-    setLeads(prev => prev.filter(l => !ids.includes(l.id)));
-    setSelectedLead(prev => prev && ids.includes(prev.id) ? null : prev);
+  const handleDelete = useCallback(async (ids: string[]) => {
+    const idSet = new Set(ids);
+    setLeads(prev => prev.filter(l => !idSet.has(l.id)));
+    setSelectedLead(prev => prev && idSet.has(prev.id) ? null : prev);
+    await deleteLeadsAction(ids);
   }, []);
 
   const filteredLeads = useMemo(() => {
@@ -63,14 +63,24 @@ export function LeadsWorkspace({ session }: LeadsWorkspaceProps) {
   }, [filters, leads]);
 
   const kpis = useMemo(() => {
-    const countStatus = (status: LeadStatus) => leads.filter(l => l.status === status).length;
+    const counts = leads.reduce(
+      (acc, lead) => {
+        acc[lead.status] += 1;
+        if (isOverdue(lead.nextFollowUpDate) && !["Won", "Lost"].includes(lead.status)) {
+          acc.Overdue += 1;
+        }
+        return acc;
+      },
+      { Hot: 0, Warm: 0, Cold: 0, Won: 0, Lost: 0, Overdue: 0 } satisfies Record<LeadStatus | "Overdue", number>
+    );
+
     return [
-      { label: "Hot Leads", value: countStatus("Hot"), status: "Hot" as LeadStatus, icon: <Flame size={14} />, trend: { text: "22% from last week", positive: true } },
-      { label: "Warm Leads", value: countStatus("Warm"), status: "Warm" as LeadStatus, icon: <Sun size={14} />, trend: { text: "8% from last week", positive: true } },
-      { label: "Cold Leads", value: countStatus("Cold"), status: "Cold" as LeadStatus, icon: <Snowflake size={14} />, trend: { text: "5% from last week", positive: false } },
-      { label: "Won", value: countStatus("Won"), status: "Won" as LeadStatus, icon: <CheckCircle2 size={14} />, trend: { text: "19% from last week", positive: true } },
-      { label: "Lost", value: countStatus("Lost"), status: "Lost" as LeadStatus, icon: <Ban size={14} />, trend: { text: "12% from last week", positive: false } },
-      { label: "Overdue", value: leads.filter(l => isOverdue(l.nextFollowUpDate) && !["Won", "Lost"].includes(l.status)).length, icon: <Clock size={14} />, trend: { text: "Action needed", neutral: true } }
+      { label: "Hot Leads", value: counts.Hot, status: "Hot" as LeadStatus, icon: <Flame size={14} />, trend: { text: "22% from last week", positive: true } },
+      { label: "Warm Leads", value: counts.Warm, status: "Warm" as LeadStatus, icon: <Sun size={14} />, trend: { text: "8% from last week", positive: true } },
+      { label: "Cold Leads", value: counts.Cold, status: "Cold" as LeadStatus, icon: <Snowflake size={14} />, trend: { text: "5% from last week", positive: false } },
+      { label: "Won", value: counts.Won, status: "Won" as LeadStatus, icon: <CheckCircle2 size={14} />, trend: { text: "19% from last week", positive: true } },
+      { label: "Lost", value: counts.Lost, status: "Lost" as LeadStatus, icon: <Ban size={14} />, trend: { text: "12% from last week", positive: false } },
+      { label: "Overdue", value: counts.Overdue, icon: <Clock size={14} />, trend: { text: "Action needed", neutral: true } }
     ];
   }, [leads]);
 
@@ -116,7 +126,13 @@ export function LeadsWorkspace({ session }: LeadsWorkspaceProps) {
       </div>
 
       <FilterBar filters={filters} onChange={next => { setShowOverdue(false); setFilters(next); }} />
-      <LeadsTable leads={tableLeads} selectedLeadId={selectedLead?.id} onSelectLead={setSelectedLead} onDelete={handleDelete} />
+      <LeadsTable
+        leads={tableLeads}
+        selectedLeadId={selectedLead?.id}
+        onSelectLead={setSelectedLead}
+        onDelete={handleDelete}
+        canDelete={canDeleteLeads}
+      />
       <LeadDrawer lead={selectedLead} onClose={() => setSelectedLead(null)} onUpdate={handleUpdateLead} />
     </div>
   );

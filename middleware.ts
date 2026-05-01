@@ -4,7 +4,7 @@ import type { Session } from "@/lib/auth/types";
 
 const COOKIE_NAME = "circuit_crm_session";
 const PUBLIC_PATHS = ["/login", "/forgot-password"];
-const ADMIN_ONLY = ["/analytics", "/admin"];
+const ADMIN_ONLY = ["/analytics", "/admin", "/add-lead"];
 
 function decodeSession(encoded: string): Session | null {
   try {

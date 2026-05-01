@@ -7,8 +7,8 @@ import { ArrowLeft, Check, Save } from "lucide-react";
 import { brands, leadSources, priorities, salespeople, statuses, useCases } from "@/lib/constants";
 import { FormField, inputClass } from "@/components/ui/form-field";
 import { SectionCard } from "@/components/ui/section-card";
+import { createLeadAction } from "@/app/actions/leads";
 import { cn } from "@/lib/utils";
-import { leads as mockLeads } from "@/lib/mock-data";
 import type { LeadStatus, Priority } from "@/lib/types";
 
 type FormState = {
@@ -52,16 +52,21 @@ type Errors = Partial<Record<keyof FormState, string>>;
 type AddLeadFormProps = {
   currentUserId: string;
   ownershipBySalesperson: Record<string, string>;
+  salespersonOptions: string[];
 };
 
-export function AddLeadForm({ currentUserId, ownershipBySalesperson }: AddLeadFormProps) {
+export function AddLeadForm({ currentUserId, ownershipBySalesperson, salespersonOptions }: AddLeadFormProps) {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const initialForm = useMemo(
+    () => ({ ...emptyForm, salesperson: salespersonOptions[0] ?? salespeople[0] }),
+    [salespersonOptions]
+  );
+  const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<Errors>({});
   const [savedMessage, setSavedMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isDirty = useMemo(() => Object.entries(form).some(([key, value]) => value !== emptyForm[key as keyof FormState]), [form]);
+  const isDirty = useMemo(() => Object.entries(form).some(([key, value]) => value !== initialForm[key as keyof FormState]), [form, initialForm]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -80,17 +85,15 @@ export function AddLeadForm({ currentUserId, ownershipBySalesperson }: AddLeadFo
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>, addAnother = false) => {
-    event.preventDefault();
+  const submitLead = async (addAnother = false) => {
     if (!validate()) return;
     
     setIsSubmitting(true);
 
     const ownerId = ownershipBySalesperson[form.salesperson] ?? currentUserId;
 
-    // Add to mock data
-    mockLeads.unshift({
-      id: `lead-${Date.now()}`,
+    try {
+      await createLeadAction({
       ownerId,
       customerName: form.customerName,
       phone: form.phone,
@@ -107,31 +110,28 @@ export function AddLeadForm({ currentUserId, ownershipBySalesperson }: AddLeadFo
       leadSource: form.leadSource,
       nextFollowUpDate: form.nextFollowUpDate,
       lastNotePreview: form.notes,
-      createdAt: new Date().toISOString().split("T")[0],
-      updatedAt: new Date().toISOString().split("T")[0],
-      activities: form.notes ? [
-        {
-          id: `act-${Date.now()}`,
-          type: "Note",
-          title: "Initial Note",
-          body: form.notes,
-          createdAt: new Date().toISOString().slice(0, 16).replace("T", " "),
-          author: form.salesperson
-        }
-      ] : []
-    });
+      }, form.notes.trim() || undefined);
 
-    if (addAnother) {
-      setSavedMessage("Lead saved. Ready for the next entry.");
-      setForm(emptyForm);
+      if (addAnother) {
+        setSavedMessage("Lead saved. Ready for the next entry.");
+        setForm(initialForm);
+      } else {
+        router.push("/");
+        router.refresh();
+      }
+    } finally {
       setIsSubmitting(false);
-    } else {
-      router.push("/");
     }
   };
 
   return (
-    <form className="space-y-6" onSubmit={(event) => handleSubmit(event)}>
+    <form
+      className="space-y-6"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        void submitLead(false);
+      }}
+    >
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <Link href="/" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-500 transition-colors hover:text-ink">
@@ -192,7 +192,7 @@ export function AddLeadForm({ currentUserId, ownershipBySalesperson }: AddLeadFo
             <div className="grid gap-4">
               <SelectField label="Status" value={form.status} onChange={(value) => update("status", value)} options={statuses} />
               <SelectField label="Priority" value={form.priority} onChange={(value) => update("priority", value)} options={priorities} />
-              <SelectField label="Salesperson" value={form.salesperson} onChange={(value) => update("salesperson", value)} options={salespeople} />
+              <SelectField label="Salesperson" value={form.salesperson} onChange={(value) => update("salesperson", value)} options={salespersonOptions.length ? salespersonOptions : salespeople} />
               <SelectField label="Lead Source" value={form.leadSource} onChange={(value) => update("leadSource", value)} options={leadSources} />
               <FormField label="Next Follow-up Date" required error={errors.nextFollowUpDate}>
                 <input className={inputClass} type="date" value={form.nextFollowUpDate} onChange={(event) => update("nextFollowUpDate", event.target.value)} />
@@ -224,7 +224,7 @@ export function AddLeadForm({ currentUserId, ownershipBySalesperson }: AddLeadFo
           <button
             type="button"
             disabled={isSubmitting}
-            onClick={(event) => handleSubmit(event as unknown as FormEvent<HTMLFormElement>, true)}
+            onClick={() => void submitLead(true)}
             className="inline-flex h-9 items-center justify-center rounded-lg border border-line bg-white px-4 text-[13px] font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
           >
             Save & Add Another

@@ -3,13 +3,8 @@
 import { useState } from "react";
 import { Plus, Shield, UserCheck, UserX, Edit2, RotateCcw, Search } from "lucide-react";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
-import { getUsers, createUser, updateUser } from "@/lib/auth/users";
+import { createUserAction, resetUserPasswordAction, toggleUserActiveAction, updateUserAction } from "@/app/actions/users";
 import type { AppUser, UserRole } from "@/lib/auth/types";
-import { leads } from "@/lib/mock-data";
-
-function getLeadCount(userId: string) {
-  return leads.filter(l => l.ownerId === userId).length;
-}
 
 type FormState = {
   name: string;
@@ -20,16 +15,19 @@ type FormState = {
 
 const emptyForm: FormState = { name: "", email: "", password: "", role: "manager" };
 
-export function UsersWorkspace() {
-  const [users, setUsers] = useState<AppUser[]>(getUsers());
+type UsersWorkspaceProps = {
+  initialUsers: AppUser[];
+};
+
+export function UsersWorkspace({ initialUsers }: UsersWorkspaceProps) {
+  const [users, setUsers] = useState<AppUser[]>(initialUsers);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editUser, setEditUser] = useState<AppUser | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [formError, setFormError] = useState("");
   const [resetInfo, setResetInfo] = useState<{ name: string; password: string } | null>(null);
-
-  const refresh = () => setUsers([...getUsers()]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const filtered = users.filter(u =>
     !search ||
@@ -37,40 +35,51 @@ export function UsersWorkspace() {
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     setFormError("");
     if (!form.name || !form.email || !form.password) {
       setFormError("All fields are required.");
       return;
     }
-    if (getUsers().find(u => u.email === form.email)) {
+    if (users.find(u => u.email.toLowerCase() === form.email.toLowerCase())) {
       setFormError("A user with this email already exists.");
       return;
     }
-    createUser({ ...form, active: true });
-    refresh();
-    setShowForm(false);
-    setForm(emptyForm);
+
+    setIsSaving(true);
+    try {
+      const user = await createUserAction(form);
+      setUsers((current) => [...current, user].sort((left, right) => left.name.localeCompare(right.name)));
+      setShowForm(false);
+      setForm(emptyForm);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!editUser) return;
-    updateUser(editUser.id, { name: form.name, role: form.role, email: form.email });
-    refresh();
-    setEditUser(null);
-    setForm(emptyForm);
+
+    setIsSaving(true);
+    try {
+      const user = await updateUserAction(editUser.id, { name: form.name, role: form.role, email: form.email });
+      setUsers((current) => current.map((item) => (item.id === user.id ? user : item)));
+      setEditUser(null);
+      setForm(emptyForm);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleToggleActive = (user: AppUser) => {
-    updateUser(user.id, { active: !user.active });
-    refresh();
+  const handleToggleActive = async (user: AppUser) => {
+    const updatedUser = await toggleUserActiveAction(user.id, !user.active);
+    setUsers((current) => current.map((item) => (item.id === updatedUser.id ? updatedUser : item)));
   };
 
-  const handleResetPassword = (user: AppUser) => {
-    const newPass = `Reset@${Math.random().toString(36).slice(-6).toUpperCase()}`;
-    updateUser(user.id, { password: newPass });
-    setResetInfo({ name: user.name, password: newPass });
-    refresh();
+  const handleResetPassword = async (user: AppUser) => {
+    const result = await resetUserPasswordAction(user.id);
+    setUsers((current) => current.map((item) => (item.id === result.user.id ? result.user : item)));
+    setResetInfo({ name: result.user.name, password: result.password });
   };
 
   return (
@@ -173,9 +182,10 @@ export function UsersWorkspace() {
               </button>
               <button
                 onClick={editUser ? handleEdit : handleCreate}
+                disabled={isSaving}
                 className="h-9 rounded-lg bg-accent-600 px-4 text-[13px] font-semibold text-white hover:bg-accent-700"
               >
-                {editUser ? "Save Changes" : "Create User"}
+                {isSaving ? "Saving..." : editUser ? "Save Changes" : "Create User"}
               </button>
             </div>
           </div>
@@ -259,7 +269,7 @@ export function UsersWorkspace() {
                   </span>
                 </td>
                 <td className="px-5 py-3 text-[13px] font-semibold text-gray-700">
-                  {getLeadCount(user.id)}
+                  {user.leadCount ?? 0}
                 </td>
                 <td className="px-5 py-3 text-[13px] text-gray-500">{user.lastLogin ?? "—"}</td>
                 <td className="px-5 py-3">

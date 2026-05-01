@@ -6,9 +6,10 @@ export type AppUser = {
   name: string;
   role: UserRole;
   active: boolean;
-  password: string;
+  password?: string;
   createdAt: string;
   lastLogin?: string;
+  leadCount?: number;
 };
 
 export type Session = {

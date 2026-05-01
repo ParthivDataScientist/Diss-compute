@@ -5,11 +5,12 @@ import { StatusBadge } from "@/components/ui/badge";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { brands, leadSources, priorities, salespeople, statuses, useCases } from "@/lib/constants";
+import type { LeadActivity } from "@/lib/types";
 
 type LeadDrawerProps = {
   lead: Lead | null;
   onClose: () => void;
-  onUpdate: (lead: Lead) => void;
+  onUpdate: (lead: Lead, activity?: LeadActivity) => void | Promise<void>;
 };
 
 export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
@@ -50,7 +51,7 @@ export function LeadDrawer({ lead, onClose, onUpdate }: LeadDrawerProps) {
       activities: activity ? [activity, ...lead.activities] : lead.activities
     };
 
-    onUpdate(nextLead);
+    onUpdate(nextLead, activity);
     setEditForm(nextLead);
     setEditingSection(null);
     setNoteText("");

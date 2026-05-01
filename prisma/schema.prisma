@@ -38,7 +38,10 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String
-  role      UserRole @default(SALESPERSON)
+  role      UserRole @default(MANAGER)
+  password  String   @default("Temp@2026")
+  active    Boolean  @default(true)
+  lastLogin DateTime?
   leads     Lead[]   @relation("SalespersonLeads")
   notes     LeadActivity[]
   createdAt DateTime @default(now())

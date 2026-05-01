@@ -9,10 +9,11 @@ type LeadsTableProps = {
   leads: Lead[];
   selectedLeadId?: string;
   onSelectLead: (lead: Lead) => void;
-  onDelete: (ids: string[]) => void;
+  onDelete: (ids: string[]) => void | Promise<void>;
+  canDelete: boolean;
 };
 
-export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: LeadsTableProps) {
+export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete, canDelete }: LeadsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
@@ -30,9 +31,11 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
 
   const visibleIds = visibleLeads.map((lead) => lead.id);
   const allVisibleChecked = visibleIds.length > 0 && visibleIds.every((id) => checkedIds.has(id));
-  const someChecked = checkedIds.size > 0;
+  const someChecked = canDelete && checkedIds.size > 0;
 
   const toggleAll = () => {
+    if (!canDelete) return;
+
     if (allVisibleChecked) {
       setCheckedIds((prev) => {
         const next = new Set(prev);
@@ -45,6 +48,8 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
   };
 
   const toggleOne = (id: string) => {
+    if (!canDelete) return;
+
     setCheckedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -57,7 +62,7 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
   };
 
   const handleDeleteConfirmed = () => {
-    if (!confirmDelete) return;
+    if (!canDelete || !confirmDelete) return;
     onDelete(confirmDelete);
     setCheckedIds(new Set());
     setConfirmDelete(null);
@@ -128,15 +133,19 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
           ) : (
             <div className="space-y-3 p-3">
               <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-                <label className="flex items-center gap-2 text-[12px] font-semibold text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={allVisibleChecked}
-                    onChange={toggleAll}
-                    className="h-4 w-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500"
-                  />
-                  Select page
-                </label>
+                {canDelete ? (
+                  <label className="flex items-center gap-2 text-[12px] font-semibold text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleChecked}
+                      onChange={toggleAll}
+                      className="h-4 w-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500"
+                    />
+                    Select page
+                  </label>
+                ) : (
+                  <span className="text-[12px] font-semibold text-slate-600">Lead list</span>
+                )}
                 <span className="text-[12px] text-slate-500">{visibleLeads.length} visible</span>
               </div>
 
@@ -157,14 +166,16 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="pt-1" onClick={(event) => event.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleOne(lead.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500"
-                        />
-                      </div>
+                      {canDelete ? (
+                        <div className="pt-1" onClick={(event) => event.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleOne(lead.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500"
+                          />
+                        </div>
+                      ) : null}
 
                       <button
                         type="button"
@@ -201,14 +212,16 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
                         </div>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDelete([lead.id])}
-                        className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors active:bg-red-50 active:text-red-500"
-                        title="Delete lead"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canDelete ? (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete([lead.id])}
+                          className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors active:bg-red-50 active:text-red-500"
+                          title="Delete lead"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      ) : null}
                     </div>
                   </article>
                 );
@@ -222,15 +235,17 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
             <table className="w-full min-w-[920px] table-fixed text-left text-sm">
               <thead className="sticky top-0 z-[1] border-b border-line bg-white/95 text-[11px] uppercase tracking-wider text-gray-500 backdrop-blur">
                 <tr>
-                  <th className="w-[4%] px-4 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={allVisibleChecked}
-                      onChange={toggleAll}
-                      className="h-4 w-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500"
-                      title={allVisibleChecked ? "Deselect all" : "Select all on this page"}
-                    />
-                  </th>
+                  {canDelete ? (
+                    <th className="w-[4%] px-4 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleChecked}
+                        onChange={toggleAll}
+                        className="h-4 w-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500"
+                        title={allVisibleChecked ? "Deselect all" : "Select all on this page"}
+                      />
+                    </th>
+                  ) : null}
                   <th className="w-[17%] px-4 py-2.5 font-semibold">Customer</th>
                   <th className="w-[10%] px-4 py-2.5 font-semibold">Status</th>
                   <th className="w-[11%] px-4 py-2.5 text-right font-semibold">Budget</th>
@@ -238,7 +253,7 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
                   <th className="w-[9%] px-4 py-2.5 font-semibold">Priority</th>
                   <th className="w-[14%] px-4 py-2.5 font-semibold">Next Follow-up</th>
                   <th className="w-[15%] px-4 py-2.5 font-semibold">Last Note</th>
-                  <th className="w-[7%] px-4 py-2.5 font-semibold sr-only">Actions</th>
+                  {canDelete ? <th className="w-[7%] px-4 py-2.5 font-semibold sr-only">Actions</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
@@ -255,14 +270,16 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
                             : "bg-white hover:bg-gray-50/80"
                       }`}
                     >
-                      <td className="px-4 py-2.5" onClick={(event) => event.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleOne(lead.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500"
-                        />
-                      </td>
+                      {canDelete ? (
+                        <td className="px-4 py-2.5" onClick={(event) => event.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleOne(lead.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500"
+                          />
+                        </td>
+                      ) : null}
                       <td className="cursor-pointer px-4 py-2.5" onClick={() => onSelectLead(lead)}>
                         <div className="flex items-center gap-3">
                           <InitialsAvatar name={lead.customerName} className="h-7 w-7" labelClassName="text-[10px]" />
@@ -301,15 +318,17 @@ export function LeadsTable({ leads, selectedLeadId, onSelectLead, onDelete }: Le
                       <td className="cursor-pointer px-4 py-2.5 text-[13px] font-medium text-gray-500" onClick={() => onSelectLead(lead)}>
                         <span className="line-clamp-1 transition-colors group-hover:text-ink">{lead.lastNotePreview}</span>
                       </td>
-                      <td className="px-2 py-2.5" onClick={(event) => event.stopPropagation()}>
-                        <button
-                          onClick={() => setConfirmDelete([lead.id])}
-                          title="Delete lead"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-300 transition-all hover:bg-red-50 hover:text-red-500"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
+                      {canDelete ? (
+                        <td className="px-2 py-2.5" onClick={(event) => event.stopPropagation()}>
+                          <button
+                            onClick={() => setConfirmDelete([lead.id])}
+                            title="Delete lead"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-300 transition-all hover:bg-red-50 hover:text-red-500"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}

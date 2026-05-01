@@ -32,16 +32,36 @@ async function main() {
         create: {
           name,
           email: `${name.toLowerCase().replaceAll(" ", ".")}@circuitcrm.local`,
-          role: UserRole.SALESPERSON
+          role: UserRole.MANAGER,
+          password: "Manager@2026",
+          active: true
         }
       })
     )
   );
 
+  await prisma.user.upsert({
+    where: { email: "admin@circuit.com" },
+    update: { role: UserRole.ADMIN, active: true },
+    create: {
+      name: "Circuit Admin",
+      email: "admin@circuit.com",
+      role: UserRole.ADMIN,
+      password: "Admin@2026",
+      active: true
+    }
+  });
+
   const manager = await prisma.user.upsert({
     where: { email: "manager@circuitcrm.local" },
     update: {},
-    create: { name: "Store Manager", email: "manager@circuitcrm.local", role: UserRole.MANAGER }
+    create: {
+      name: "Store Manager",
+      email: "manager@circuitcrm.local",
+      role: UserRole.MANAGER,
+      password: "Manager@2026",
+      active: true
+    }
   });
 
   const leadSeeds = [

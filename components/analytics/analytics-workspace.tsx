@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import type { EChartsOption } from "echarts";
 import { CalendarRange, ChevronDown, SlidersHorizontal, X } from "lucide-react";
-import { brands, leadSources, salespeople, statuses } from "@/lib/constants";
-import { leads } from "@/lib/mock-data";
+import { statuses } from "@/lib/constants";
+import type { Lead } from "@/lib/types";
 import { formatCurrency, isOverdue } from "@/lib/utils";
 import { ChartCard } from "@/components/analytics/chart-card";
 
@@ -44,81 +44,10 @@ const grid = {
   containLabel: true
 };
 
-export function AnalyticsWorkspace() {
+export function AnalyticsWorkspace({ initialLeads }: { initialLeads: Lead[] }) {
   const [filters, setFilters] = useState<AnalyticsFilters>(initialAnalyticsFilters);
-
-  const filtered = useMemo(() => {
-    return leads.filter(
-      (lead) =>
-        (filters.salesperson === "All" || lead.salesperson === filters.salesperson) &&
-        (filters.brand === "All" || lead.brandInterested === filters.brand) &&
-        (filters.source === "All" || lead.leadSource === filters.source) &&
-        (!filters.dateFrom || lead.createdAt >= filters.dateFrom) &&
-        (!filters.dateTo || lead.createdAt <= filters.dateTo)
-    );
-  }, [filters]);
-
-  const wonCount = filtered.filter((lead) => lead.status === "Won").length;
-  const lostCount = filtered.filter((lead) => lead.status === "Lost").length;
-  const openLeads = filtered.filter((lead) => !["Won", "Lost"].includes(lead.status));
-  const overdueLeads = openLeads.filter((lead) => isOverdue(lead.nextFollowUpDate));
-  const totalBudget = filtered.reduce((sum, lead) => sum + lead.budget, 0);
-  const winRate = filtered.length ? Math.round((wonCount / filtered.length) * 100) : 0;
-  const lossRate = filtered.length ? Math.round((lostCount / filtered.length) * 100) : 0;
-  const qualifiedCount = filtered.filter((lead) => ["Hot", "Warm", "Won"].includes(lead.status)).length;
-  const hotCount = filtered.filter((lead) => ["Hot", "Won"].includes(lead.status)).length;
-
-  const funnelStages = useMemo(
-    () => [
-      { label: "All leads", value: filtered.length },
-      { label: "Qualified", value: qualifiedCount },
-      { label: "High intent", value: hotCount },
-      { label: "Won", value: wonCount }
-    ],
-    [filtered.length, hotCount, qualifiedCount, wonCount]
-  );
-
-  const leadsByDate = useMemo(() => {
-    return filtered.reduce<Record<string, number>>((acc, lead) => {
-      acc[lead.createdAt] = (acc[lead.createdAt] ?? 0) + 1;
-      return acc;
-    }, {});
-  }, [filtered]);
-
-  const leadTrendEntries = useMemo(
-    () =>
-      Object.entries(leadsByDate)
-        .sort((left, right) => left[0].localeCompare(right[0]))
-        .slice(-7),
-    [leadsByDate]
-  );
-
-  const statusCounts = useMemo(
-    () =>
-      statuses.reduce<Record<string, number>>((acc, status) => {
-        acc[status] = filtered.filter((lead) => lead.status === status).length;
-        return acc;
-      }, {}),
-    [filtered]
-  );
-
-  const leadsBySalesperson = useMemo(() => countBy(filtered.map((lead) => lead.salesperson)), [filtered]);
-  const conversionRates = useMemo(() => {
-    return Object.fromEntries(
-      salespeople.map((name) => {
-        const owned = filtered.filter((lead) => lead.salesperson === name);
-        const won = owned.filter((lead) => lead.status === "Won").length;
-        return [name, owned.length ? Math.round((won / owned.length) * 100) : 0];
-      })
-    );
-  }, [filtered]);
-
-  const productDemand = useMemo(
-    () => countBy(filtered.map((lead) => `${lead.brandInterested} ${lead.laptopModel}`)),
-    [filtered]
-  );
-
-  const sourceCounts = useMemo(() => countBy(filtered.map((lead) => lead.leadSource)), [filtered]);
+  const filterOptions = useMemo(() => buildFilterOptions(initialLeads), [initialLeads]);
+  const analytics = useMemo(() => buildAnalytics(initialLeads, filters), [filters, initialLeads]);
 
   const activeFilterCount =
     [filters.salesperson, filters.brand, filters.source].filter((value) => value !== "All").length +
@@ -170,19 +99,19 @@ export function AnalyticsWorkspace() {
           <AnalyticsSelect
             label="Salesperson"
             value={filters.salesperson}
-            options={["All", ...salespeople]}
+            options={["All", ...filterOptions.salespeople]}
             onChange={(value) => setFilters({ ...filters, salesperson: value })}
           />
           <AnalyticsSelect
             label="Brand"
             value={filters.brand}
-            options={["All", ...brands]}
+            options={["All", ...filterOptions.brands]}
             onChange={(value) => setFilters({ ...filters, brand: value })}
           />
           <AnalyticsSelect
             label="Lead Source"
             value={filters.source}
-            options={["All", ...leadSources]}
+            options={["All", ...filterOptions.sources]}
             onChange={(value) => setFilters({ ...filters, source: value })}
           />
           <button
@@ -204,25 +133,25 @@ export function AnalyticsWorkspace() {
       <div className="grid gap-4 md:grid-cols-4">
         <Metric
           label="Pipeline Leads"
-          value={filtered.length.toString()}
-          note={`${qualifiedCount} qualified leads in the active view`}
+          value={analytics.totalLeads.toString()}
+          note={`${analytics.qualifiedCount} qualified leads in the active view`}
         />
         <Metric
           label="Win Rate"
-          value={`${winRate}%`}
-          note={`${wonCount} converted leads`}
+          value={`${analytics.winRate}%`}
+          note={`${analytics.wonCount} converted leads`}
           accent="text-accent-700"
         />
         <Metric
           label="Loss Rate"
-          value={`${lossRate}%`}
-          note={`${lostCount} lost leads`}
+          value={`${analytics.lossRate}%`}
+          note={`${analytics.lostCount} lost leads`}
         />
         <Metric
           label="Overdue Follow-ups"
-          value={overdueLeads.length.toString()}
-          note={totalBudget ? `${formatCurrency(totalBudget)} visible pipeline value` : "No active pipeline value"}
-          accent={overdueLeads.length > 0 ? "text-status-red-700" : "text-ink"}
+          value={analytics.overdueCount.toString()}
+          note={analytics.totalBudget ? `${formatCurrency(analytics.totalBudget)} visible pipeline value` : "No active pipeline value"}
+          accent={analytics.overdueCount > 0 ? "text-status-red-700" : "text-ink"}
         />
       </div>
 
@@ -230,16 +159,16 @@ export function AnalyticsWorkspace() {
       <div className="grid gap-4 xl:grid-cols-[1.45fr_0.95fr]">
         <ChartCard
           title="Conversion funnel"
-          option={buildFunnelOption(funnelStages)}
+          option={buildFunnelOption(analytics.funnelStages)}
           height={360}
         />
         <ChartCard
           title="Leads over time"
           option={buildLineOption(
-            leadTrendEntries.map(([date]) =>
+            analytics.leadTrendEntries.map(([date]) =>
               new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(new Date(date))
             ),
-            leadTrendEntries.map(([, value]) => value)
+            analytics.leadTrendEntries.map(([, value]) => value)
           )}
           height={320}
         />
@@ -247,7 +176,7 @@ export function AnalyticsWorkspace() {
 
       <ChartCard
         title="Lead status breakdown"
-        option={buildSegmentedStatusOption(statusCounts)}
+        option={buildSegmentedStatusOption(analytics.statusCounts)}
         height={120}
       />
 
@@ -255,14 +184,14 @@ export function AnalyticsWorkspace() {
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard
           title="Salesperson pipeline volume"
-          option={buildRankedBarOption(leadsBySalesperson, { color: "#0f172a", maxItems: salespeople.length })}
+          option={buildRankedBarOption(analytics.leadsBySalesperson, { color: "#0f172a", maxItems: filterOptions.salespeople.length })}
         />
         <ChartCard
           title="Conversion rate by salesperson"
-          option={buildRankedBarOption(conversionRates, {
+          option={buildRankedBarOption(analytics.conversionRates, {
             color: "#2563eb",
             suffix: "%",
-            maxItems: salespeople.length
+            maxItems: filterOptions.salespeople.length
           })}
         />
       </div>
@@ -270,13 +199,13 @@ export function AnalyticsWorkspace() {
       <AnalyticsSection title="Product Insights" />
       <ChartCard
         title="Top requested products"
-        option={buildRankedBarOption(productDemand, { maxItems: 5 })}
+        option={buildRankedBarOption(analytics.productDemand, { maxItems: 5 })}
       />
 
       <AnalyticsSection title="Source Analysis" />
       <ChartCard
         title="Lead sources"
-        option={buildRankedBarOption(sourceCounts)}
+        option={buildRankedBarOption(analytics.sourceCounts)}
       />
     </div>
   );
@@ -337,11 +266,100 @@ function Metric({
   );
 }
 
-function countBy(items: string[]) {
-  return items.reduce<Record<string, number>>((acc, item) => {
-    acc[item] = (acc[item] ?? 0) + 1;
-    return acc;
-  }, {});
+function buildFilterOptions(leads: Lead[]) {
+  const salespeople = new Set<string>();
+  const brands = new Set<string>();
+  const sources = new Set<string>();
+
+  for (const lead of leads) {
+    salespeople.add(lead.salesperson);
+    brands.add(lead.brandInterested);
+    if (lead.leadSource) sources.add(lead.leadSource);
+  }
+
+  return {
+    salespeople: [...salespeople].sort(),
+    brands: [...brands].sort(),
+    sources: [...sources].sort()
+  };
+}
+
+function increment(map: Record<string, number>, key: string, by = 1) {
+  map[key] = (map[key] ?? 0) + by;
+}
+
+function buildAnalytics(leads: Lead[], filters: AnalyticsFilters) {
+  const statusCounts = Object.fromEntries(statuses.map((status) => [status, 0])) as Record<string, number>;
+  const leadsByDate: Record<string, number> = {};
+  const leadsBySalesperson: Record<string, number> = {};
+  const winsBySalesperson: Record<string, number> = {};
+  const productDemand: Record<string, number> = {};
+  const sourceCounts: Record<string, number> = {};
+
+  let totalLeads = 0;
+  let wonCount = 0;
+  let lostCount = 0;
+  let qualifiedCount = 0;
+  let hotCount = 0;
+  let overdueCount = 0;
+  let totalBudget = 0;
+
+  for (const lead of leads) {
+    const matchesFilter =
+      (filters.salesperson === "All" || lead.salesperson === filters.salesperson) &&
+      (filters.brand === "All" || lead.brandInterested === filters.brand) &&
+      (filters.source === "All" || lead.leadSource === filters.source) &&
+      (!filters.dateFrom || lead.createdAt >= filters.dateFrom) &&
+      (!filters.dateTo || lead.createdAt <= filters.dateTo);
+
+    if (!matchesFilter) continue;
+
+    totalLeads += 1;
+    totalBudget += lead.budget;
+    increment(statusCounts, lead.status);
+    increment(leadsByDate, lead.createdAt);
+    increment(leadsBySalesperson, lead.salesperson);
+    increment(productDemand, `${lead.brandInterested} ${lead.laptopModel}`);
+    increment(sourceCounts, lead.leadSource || "Unknown");
+
+    if (lead.status === "Won") {
+      wonCount += 1;
+      increment(winsBySalesperson, lead.salesperson);
+    }
+    if (lead.status === "Lost") lostCount += 1;
+    if (lead.status === "Hot" || lead.status === "Warm" || lead.status === "Won") qualifiedCount += 1;
+    if (lead.status === "Hot" || lead.status === "Won") hotCount += 1;
+    if (lead.status !== "Won" && lead.status !== "Lost" && isOverdue(lead.nextFollowUpDate)) overdueCount += 1;
+  }
+
+  const conversionRates = Object.fromEntries(
+    Object.entries(leadsBySalesperson).map(([name, count]) => [name, count ? Math.round(((winsBySalesperson[name] ?? 0) / count) * 100) : 0])
+  );
+
+  return {
+    totalLeads,
+    wonCount,
+    lostCount,
+    qualifiedCount,
+    overdueCount,
+    totalBudget,
+    winRate: totalLeads ? Math.round((wonCount / totalLeads) * 100) : 0,
+    lossRate: totalLeads ? Math.round((lostCount / totalLeads) * 100) : 0,
+    funnelStages: [
+      { label: "All leads", value: totalLeads },
+      { label: "Qualified", value: qualifiedCount },
+      { label: "High intent", value: hotCount },
+      { label: "Won", value: wonCount }
+    ],
+    leadTrendEntries: Object.entries(leadsByDate)
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .slice(-7),
+    statusCounts,
+    leadsBySalesperson,
+    conversionRates,
+    productDemand,
+    sourceCounts
+  };
 }
 
 function buildFunnelOption(stages: { label: string; value: number }[]): EChartsOption {
