@@ -9,6 +9,7 @@ import { FormField, inputClass } from "@/components/ui/form-field";
 import { SectionCard } from "@/components/ui/section-card";
 import { createLeadAction } from "@/app/actions/leads";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/lib/auth/types";
 import type { LeadStatus, Priority } from "@/lib/types";
 
 type FormState = {
@@ -51,12 +52,14 @@ type Errors = Partial<Record<keyof FormState, string>>;
 
 type AddLeadFormProps = {
   currentUserId: string;
+  currentUserRole: UserRole;
   ownershipBySalesperson: Record<string, string>;
   salespersonOptions: string[];
 };
 
-export function AddLeadForm({ currentUserId, ownershipBySalesperson, salespersonOptions }: AddLeadFormProps) {
+export function AddLeadForm({ currentUserId, currentUserRole, ownershipBySalesperson, salespersonOptions }: AddLeadFormProps) {
   const router = useRouter();
+  const canChooseSalesperson = currentUserRole === "admin";
   const initialForm = useMemo(
     () => ({ ...emptyForm, salesperson: salespersonOptions[0] ?? salespeople[0] }),
     [salespersonOptions]
@@ -192,7 +195,9 @@ export function AddLeadForm({ currentUserId, ownershipBySalesperson, salesperson
             <div className="grid gap-4">
               <SelectField label="Status" value={form.status} onChange={(value) => update("status", value)} options={statuses} />
               <SelectField label="Priority" value={form.priority} onChange={(value) => update("priority", value)} options={priorities} />
-              <SelectField label="Salesperson" value={form.salesperson} onChange={(value) => update("salesperson", value)} options={salespersonOptions.length ? salespersonOptions : salespeople} />
+              {canChooseSalesperson ? (
+                <SelectField label="Salesperson" value={form.salesperson} onChange={(value) => update("salesperson", value)} options={salespersonOptions.length ? salespersonOptions : salespeople} />
+              ) : null}
               <SelectField label="Lead Source" value={form.leadSource} onChange={(value) => update("leadSource", value)} options={leadSources} />
               <FormField label="Next Follow-up Date" required error={errors.nextFollowUpDate}>
                 <input className={inputClass} type="date" value={form.nextFollowUpDate} onChange={(event) => update("nextFollowUpDate", event.target.value)} />

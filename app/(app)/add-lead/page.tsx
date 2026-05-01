@@ -17,6 +17,7 @@ export default async function AddLeadPage() {
   return (
     <AddLeadForm
       currentUserId={session?.userId ?? ""}
+      currentUserRole={session.role}
       ownershipBySalesperson={ownershipBySalesperson}
       salespersonOptions={salesUsers.map((user) => user.name)}
     />
