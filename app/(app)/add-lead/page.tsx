@@ -6,10 +6,12 @@ import { redirect } from "next/navigation";
 export default async function AddLeadPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "admin") redirect("/");
 
   const users = await userService.getUsers();
-  const salesUsers = users.filter((user) => user.role === "manager" && user.active);
+  const salesUsers =
+    session.role === "admin"
+      ? users.filter((user) => user.role === "manager" && user.active)
+      : [{ id: session.userId, name: session.name }];
   const ownershipBySalesperson = Object.fromEntries(salesUsers.map((user) => [user.name, user.id]));
 
   return (

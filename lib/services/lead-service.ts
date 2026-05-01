@@ -25,8 +25,8 @@ export function createLeadService({ repository = leadRepository }: LeadServiceDe
     createLead(session: Session, payload: LeadCreateInput, note?: string): Promise<Lead> {
       const lead = validateLeadWrite(payload);
 
-      if (session.role !== "admin") {
-        throw new AuthorizationError("Only admins can create leads.");
+      if (session.role !== "admin" && lead.ownerId !== session.userId) {
+        throw new AuthorizationError("Managers can only create leads assigned to themselves.");
       }
 
       return repository.create(lead, note?.trim() || undefined);

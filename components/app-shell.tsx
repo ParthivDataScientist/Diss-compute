@@ -40,7 +40,7 @@ export function AppShell({ session, children }: AppShellProps) {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const navItems = session.role === "admin" ? adminNav : managerNav;
-  const canAddLeads = session.role === "admin";
+  const canAddLeads = session.role === "admin" || session.role === "manager";
 
   useEffect(() => {
     setMobileSidebarOpen(false);
